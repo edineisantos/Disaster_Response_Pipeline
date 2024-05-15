@@ -1,0 +1,20 @@
+name: disaster_response_pipeline
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pandas
+  - numpy
+  - pip
+  - scikit-learn
+  - pytest
+  - jupyter
+  - jupyterlab
+  - nltk
+  - flask
+  - sqlalchemy
+  - plotly
+  - requests
+  - matplotlib 
+  - seaborn
