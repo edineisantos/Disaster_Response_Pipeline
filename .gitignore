@@ -114,9 +114,6 @@ outputs/
 random_forest_dir/
 multirun/
 
-# Data directory
-data/
-
 # Data Files
 *.csv
 *.json
