@@ -166,42 +166,77 @@ def build_model():
     return cv
 
 
-def evaluate_model(model, X_test, Y_test, category_names):
+def evaluate_model(model, X_test, Y_test, category_names, database_filepath):
     """
-    Evaluate the model and print classification report.
+    Evaluate the model, print report, and save metrics to the database.
 
     Args:
         model (GridSearchCV): Trained model.
         X_test (DataFrame): Test feature data.
         Y_test (DataFrame): Test target data.
         category_names (list): List of category names.
+        database_filepath (str): Filepath for the SQLite database.
     """
     Y_pred = model.predict(X_test)
 
     precision_list = []
     recall_list = []
     f1_list = []
+    accuracy_list = []
+
+    # List to store class-wise metrics
+    metrics_list = []
 
     for i, col in enumerate(category_names):
-        print(f"Category: {col}")
         report = classification_report(Y_test[col], Y_pred[:, i],
                                        output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        f1 = report['weighted avg']['f1-score']
+        accuracy = accuracy_score(Y_test[col], Y_pred[:, i])
+
+        # Append class metrics to the list
+        metrics_list.append({
+            'class': col,
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1,
+            'accuracy': accuracy
+        })
+
+        precision_list.append(precision)
+        recall_list.append(recall)
+        f1_list.append(f1)
+        accuracy_list.append(accuracy)
+
+        print(f"Category: {col}")
         print(classification_report(Y_test[col], Y_pred[:, i]))
         print("\n")
-        precision_list.append(report['weighted avg']['precision'])
-        recall_list.append(report['weighted avg']['recall'])
-        f1_list.append(report['weighted avg']['f1-score'])
 
-    accuracy = np.mean([accuracy_score(Y_test[col], Y_pred[:, i]) for i,
-                        col in enumerate(category_names)])
-    precision = np.mean(precision_list)
-    recall = np.mean(recall_list)
-    f1 = np.mean(f1_list)
+    # Create DataFrame from the list of metrics
+    class_metrics = pd.DataFrame(metrics_list)
 
-    print(f'Average Accuracy: {accuracy:.4f}')
-    print(f'Average Precision: {precision:.4f}')
-    print(f'Average Recall: {recall:.4f}')
-    print(f'Average F1 Score: {f1:.4f}')
+    overall_metrics = {
+        'average_accuracy': np.mean(accuracy_list),
+        'average_precision': np.mean(precision_list),
+        'average_recall': np.mean(recall_list),
+        'average_f1_score': np.mean(f1_list)
+    }
+
+    print(f"Average Accuracy: {overall_metrics['average_accuracy']:.4f}")
+    print(f"Average Precision: {overall_metrics['average_precision']:.4f}")
+    print(f"Average Recall: {overall_metrics['average_recall']:.4f}")
+    print(f"Average F1 Score: {overall_metrics['average_f1_score']:.4f}")
+
+    # Save class-wise metrics to a new table in the database
+    engine = create_engine(f'sqlite:///{database_filepath}')
+    class_metrics.to_sql('class_metrics', engine, index=False,
+                         if_exists='replace')
+
+    # Save overall metrics to the database
+    overall_metrics_df = pd.DataFrame([overall_metrics])
+    overall_metrics_df.to_sql('overall_metrics', engine, index=False,
+                              if_exists='replace')
 
 
 def save_model(model, model_filepath):
@@ -232,7 +267,8 @@ def main():
         model.fit(X_train, Y_train)
 
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model, X_test, Y_test, category_names,
+                       database_filepath)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)
