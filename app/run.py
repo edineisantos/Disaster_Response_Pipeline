@@ -1,18 +1,31 @@
+import sys
+import os
 import json
 import plotly
 import pandas as pd
+from wordcloud import WordCloud
 
+import nltk
+from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
-from sklearn.externals import joblib
+from plotly.graph_objs import Bar, Image
+import joblib
 from sqlalchemy import create_engine
+
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '../models')))
+
+from train_classifier import POSTagEncoder, NEREncoder
 
 
 app = Flask(__name__)
+
+nltk.download('stopwords')
 
 def tokenize(text):
     tokens = word_tokenize(text)
@@ -26,11 +39,11 @@ def tokenize(text):
     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:///../data/YourDatabaseName.db')
-df = pd.read_sql_table('YourTableName', engine)
+engine = create_engine('sqlite:///../data/DisasterResponseData.db')
+df = pd.read_sql_table('Message', engine)
 
 # load model
-model = joblib.load("../models/your_model_name.pkl")
+model = joblib.load("../models/classifier.pkl")
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -38,13 +51,29 @@ model = joblib.load("../models/your_model_name.pkl")
 @app.route('/index')
 def index():
     
-    # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
+    # Number of messages classified in each genre
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
+
+    # Number of messages classified in each class
+    category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
+    category_names = list(category_counts.index)
+
+    # Distribution of the number of classes per message
+    class_counts = df.iloc[:, 4:].sum(axis=1)
+    class_counts_distribution = class_counts.value_counts().sort_index()
+    class_counts_values = list(class_counts_distribution.index)
+    class_counts_freq = list(class_counts_distribution.values)
+
+    # Generate word cloud
+    stop_words = set(stopwords.words('english'))
+    words = ' '.join(df['message'])
+    wordcloud = WordCloud(stopwords=stop_words, 
+                          max_words=100, 
+                          background_color="white").generate(words)
+    wordcloud_image = wordcloud.to_array()
     
     # create visuals
-    # TODO: Below is an example - modify to create your own visuals
     graphs = [
         {
             'data': [
@@ -61,6 +90,57 @@ def index():
                 },
                 'xaxis': {
                     'title': "Genre"
+                }
+            }
+        },
+        {
+            'data': [
+                Bar(
+                    x=category_names,
+                    y=category_counts
+                )
+            ],
+            'layout': {
+                'title': 'Number of Messages Classified in Each Category',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Category",
+                    'tickangle': -45
+                }
+            }
+        },
+        {
+            'data': [
+                Bar(
+                    x=class_counts_values,
+                    y=class_counts_freq
+                )
+            ],
+            'layout': {
+                'title': 'Distribution of the Number of Classes per Message',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Number of Classes"
+                }
+            }
+        },
+        {
+            'data': [
+                Image(
+                    z=wordcloud_image
+                )
+            ],
+            'layout': {
+                'title': 'Word Cloud of Messages',
+                'xaxis': {
+                    'visible': False
+                },
+                'yaxis': {
+                    'visible': False
                 }
             }
         }

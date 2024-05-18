@@ -19,3 +19,4 @@ dependencies:
   - matplotlib 
   - seaborn
   - xgboost
+  - wordcloud
