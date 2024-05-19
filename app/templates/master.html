@@ -53,14 +53,29 @@
 </div>
 
 <div class="container">
+    <div class="page-header">
+        <h1 class="text-center">Overview of Training Dataset</h1>
+    </div>
+
     {% block content %}
-        <div class="page-header">
-            <h1 class="text-center">Overview of Training Dataset</h1>
-        </div>
     {% endblock %}
 
     {% for id in ids %}
-        <div id="{{id}}"></div>
+        {% if id.startswith("graph-") %}
+            <div id="{{id}}"></div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<div class="container">
+    <div class="page-header">
+        <h1 class="text-center">Overview of Model Performance</h1>
+    </div>
+
+    {% for id in ids %}
+        {% if id.startswith("performance-") %}
+            <div id="{{id}}"></div>
+        {% endif %}
     {% endfor %}
 </div>
 

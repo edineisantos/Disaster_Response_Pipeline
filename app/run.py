@@ -1,33 +1,41 @@
+"""
+This script runs a web application to display data visualizations.
+
+Usage:
+    python run.py
+"""
 import sys
 import os
 import json
 import plotly
-import pandas as pd
-from wordcloud import WordCloud
-
 import nltk
+import joblib
+import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
-
-from flask import Flask
-from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar, Image
-import joblib
+from wordcloud import WordCloud
+from flask import Flask, render_template, request
+from plotly.graph_objs import Bar, Image, Table
 from sqlalchemy import create_engine
 
 # Add the parent directory to the system path
-sys.path.append(os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../models')))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '../models')))
 
 from train_classifier import POSTagEncoder, NEREncoder
-
 
 app = Flask(__name__)
 
 nltk.download('stopwords')
 
+# Initialize POSTagEncoder and NEREncoder
+pos_tag_encoder = POSTagEncoder()
+ner_encoder = NEREncoder()
+
+
 def tokenize(text):
+    """Tokenize, lemmatize, and clean text data with POS and NER features."""
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
@@ -38,19 +46,23 @@ def tokenize(text):
 
     return clean_tokens
 
-# load data
+
+# Load data
 engine = create_engine('sqlite:///../data/DisasterResponseData.db')
 df = pd.read_sql_table('Message', engine)
 
-# load model
+# Load model
 model = joblib.load("../models/classifier.pkl")
 
 
-# index webpage displays cool visuals and receives user input text for model
 @app.route('/')
 @app.route('/index')
 def index():
-    
+    """
+    Display visuals and receive user input for the model.
+
+    Renders the main page with various graphs and visualizations.
+    """
     # Number of messages classified in each genre
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
@@ -68,12 +80,47 @@ def index():
     # Generate word cloud
     stop_words = set(stopwords.words('english'))
     words = ' '.join(df['message'])
-    wordcloud = WordCloud(stopwords=stop_words, 
-                          max_words=100, 
+    wordcloud = WordCloud(stopwords=stop_words, max_words=100,
                           background_color="white").generate(words)
     wordcloud_image = wordcloud.to_array()
-    
-    # create visuals
+
+    # Load performance metrics from database
+    overall_metrics = pd.read_sql_table(
+        'overall_metrics', engine).iloc[0]
+
+    # Format the performance metrics to two decimal places
+    overall_metrics = overall_metrics.apply(lambda x: format(x, '.2f'))
+
+    # Overall performance table
+    overall_table = {
+        'data': [
+            Table(
+                header=dict(
+                    values=['Metric', 'Score'],
+                    fill_color='paleturquoise',
+                    align='left'
+                ),
+                cells=dict(
+                    values=[
+                        ['Precision', 'Recall', 'F1 Score', 'Accuracy'],
+                        [
+                            overall_metrics['average_precision'],
+                            overall_metrics['average_recall'],
+                            overall_metrics['average_f1_score'],
+                            overall_metrics['average_accuracy']
+                        ]
+                    ],
+                    fill_color='lavender',
+                    align='left'
+                )
+            )
+        ],
+        'layout': {
+            'title': 'Overall Performance Metrics'
+        }
+    }
+
+    # Create the list of graphs
     graphs = [
         {
             'data': [
@@ -82,7 +129,6 @@ def index():
                     y=genre_counts
                 )
             ],
-
             'layout': {
                 'title': 'Distribution of Message Genres',
                 'yaxis': {
@@ -145,26 +191,36 @@ def index():
             }
         }
     ]
-    
-    # encode plotly graphs in JSON
-    ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
-    graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
-    # render web page with plotly graphs
-    return render_template('master.html', ids=ids, graphJSON=graphJSON)
+
+    # Add performance graphs
+    performance_graphs = [overall_table]
+
+    # Encode plotly graphs in JSON
+    graph_ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
+    performance_ids = ["performance-{}".format(i) for i, _ in enumerate(
+        performance_graphs)]
+    graphJSON = json.dumps(graphs + performance_graphs,
+                           cls=plotly.utils.PlotlyJSONEncoder)
+
+    # Render web page with plotly graphs
+    return render_template('master.html', ids=graph_ids + performance_ids,
+                           graphJSON=graphJSON)
 
 
-# web page that handles user query and displays model results
 @app.route('/go')
 def go():
-    # save user input in query
-    query = request.args.get('query', '') 
+    """
+    Handle user query and display model results.
 
-    # use model to predict classification for query
+    Renders the classification results page for the user's input message.
+    """
+    query = request.args.get('query', '')
+
+    # Use model to predict classification for query
     classification_labels = model.predict([query])[0]
     classification_results = dict(zip(df.columns[4:], classification_labels))
 
-    # This will render the go.html Please see that file. 
+    # This will render the go.html Please see that file.
     return render_template(
         'go.html',
         query=query,
@@ -173,6 +229,7 @@ def go():
 
 
 def main():
+    """Run the Flask app."""
     app.run(host='0.0.0.0', port=3000, debug=True)
 
 
