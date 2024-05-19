@@ -71,14 +71,20 @@ def tokenize(text):
     Returns:
         list: List of clean tokens.
     """
+    # Remove non-alphanumeric characters and converte to lowercase
     text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
+    
+    # Tokenize the text
     tokens = nltk.word_tokenize(text)
-    tokens = [t for t in tokens if t not in
-              nltk.corpus.stopwords.words("english")]
+    
+    # Remove stop words
+    tokens = [t for t in tokens 
+              if t not in nltk.corpus.stopwords.words("english")]
+    
+    # Lemmatize tokens
     lemmatizer = nltk.WordNetLemmatizer()
-    stemmer = nltk.PorterStemmer()
-    clean_tokens = [lemmatizer.lemmatize(stemmer.stem(token)).strip() for
-                    token in tokens]
+    clean_tokens = [lemmatizer.lemmatize(token).strip() for token in tokens]
+    
     return clean_tokens
 
 
