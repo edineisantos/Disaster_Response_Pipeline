@@ -74,6 +74,10 @@ def clean_data(df):
     # Concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories_expanded], axis=1)
 
+    # Drop rows where any category column has a value other than 0 or 1
+    for column in category_colnames:
+        df = df[df[column].isin([0, 1])]
+
     # Drop duplicates
     df.drop_duplicates(inplace=True)
 
