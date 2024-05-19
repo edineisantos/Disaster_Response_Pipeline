@@ -53,9 +53,11 @@
 </div>
 
 <div class="container">
+    {% if not results_page %}
     <div class="page-header">
         <h1 class="text-center">Overview of Training Dataset</h1>
     </div>
+    {% endif %}
 
     {% block content %}
     {% endblock %}
@@ -68,9 +70,11 @@
 </div>
 
 <div class="container">
+    {% if not results_page %}
     <div class="page-header">
         <h1 class="text-center">Overview of Model Performance</h1>
     </div>
+    {% endif %}
 
     {% for id in ids %}
         {% if id.startswith("performance-") %}

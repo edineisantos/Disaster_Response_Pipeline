@@ -204,7 +204,7 @@ def index():
 
     # Render web page with plotly graphs
     return render_template('master.html', ids=graph_ids + performance_ids,
-                           graphJSON=graphJSON)
+                           graphJSON=graphJSON, results_page=False)
 
 
 @app.route('/go')
@@ -224,7 +224,8 @@ def go():
     return render_template(
         'go.html',
         query=query,
-        classification_result=classification_results
+        classification_result=classification_results,
+        results_page=True
     )
 
 
